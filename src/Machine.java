@@ -19,10 +19,10 @@ public class Machine {
             GT = 6,         // int grater than
             LEQ = 7,        // int less than eq
             GEQ = 8,        // int greater than eq
-            AND = 9,        // boolean and
-            OR = 10,        // boolean or
-            NOT = 11,       // boolean not
-            EQ = 12,         // int equal
+            EQ = 9,         // int equal
+            AND = 10,        // boolean and
+            OR = 11,        // boolean or
+            NOT = 12,       // boolean not
             JMP = 13,        // branch
             JMPT = 14,       // branch if true
             JMPF = 15,       // branch if false
@@ -73,6 +73,7 @@ public class Machine {
             programMemory=tmp.stream().mapToInt(Integer::intValue).toArray();
         } catch (FileNotFoundException e) {
             System.err.println(e);
+            programMemory = new int[] {HALT};
         }
     }
 
@@ -108,27 +109,41 @@ public class Machine {
                 case LT -> {
                     b = pop();
                     a = pop();
-                    push(a<b?1:0);
+                    push(a<b? 1:0);
                 }
                 case GT -> {
                     b = pop();
                     a = pop();
-                    push(a>b?1:0);
+                    push(a>b? 1:0);
                 }
                 case LEQ -> {
                     b = pop();
                     a = pop();
-                    push(a<=b?1:0);
+                    push(a<=b? 1:0);
                 }
                 case GEQ -> {
                     b = pop();
                     a = pop();
-                    push(a>=b?1:0);
+                    push(a>=b? 1:0);
                 }
                 case EQ -> {
                     b = pop();
                     a = pop();
-                    push(a==b?1:0);
+                    push(a==b? 1:0);
+                }
+                case AND -> {
+                    b = pop();
+                    a = pop();
+                    push(a==1&&b==1? 1:0);
+                }
+                case OR -> {
+                    b = pop();
+                    a = pop();
+                    push(a==1||b==1? 1:0);
+                }
+                case NOT -> {
+                    a = pop();
+                    push(a==1? 0: a==0? 1: a);
                 }
                 case CONST -> {
                     pc += 1;

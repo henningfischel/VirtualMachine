@@ -5,7 +5,7 @@ import java.io.FileNotFoundException;
 import java.util.Scanner;
 
 public class Machine {
-    private int[] programMemory, stack, heap;
+    private int[] programMemory, stack, globalMem, localMem;
     private int pc,sp, fp;
     private  int a,b;
     private boolean done;
@@ -43,7 +43,7 @@ public class Machine {
         done = false;
         programMemory = program;
         stack = new int[2^8];
-        heap = new int[2^12];
+        globalMem = new int[2^12];
     }
 
     public Machine(String filepath){
@@ -52,7 +52,7 @@ public class Machine {
         done = false;
         load(filepath);
         stack = new int[2^8];
-        heap = new int[2^12];
+        globalMem = new int[2^12];
     }
 
     public Machine(){
@@ -60,7 +60,7 @@ public class Machine {
         pc = 0;
         done = false;
         stack = new int[2^8];
-        heap = new int[2^12];
+        globalMem = new int[2^12];
     }
 
     public void load(String path){
@@ -145,9 +145,32 @@ public class Machine {
                     a = pop();
                     push(a==1? 0: a==0? 1: a);
                 }
+                case JMP -> {
+                    a = pop();
+                    pc = a;
+                }
+                case JMPT -> {
+                    b = pop();
+                    a = pop();
+                    pc = b==1? a:pc;
+                }
+                case JMPF -> {
+                    b = pop();
+                    a = pop();
+                    pc = b==0? a:pc;
+                }
                 case CONST -> {
                     pc += 1;
                     push(programMemory[pc]);
+                }
+                case GLOAD -> {
+                    a = pop(); //get the address
+                    push(globalMem[a]);
+                }
+                case  GSTORE -> {
+                    pc+=1;
+                    a = pop();
+                    globalMem[pc] = a;
                 }
                 case PRINT -> System.out.println(stack[sp]);
                 case POP -> pop();

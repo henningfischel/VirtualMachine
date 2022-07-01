@@ -1,3 +1,9 @@
+/**
+ * The Machine Class is a virtual machine that executes a program
+ *
+ * @author  Henning Fischel
+ */
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.io.File;
@@ -10,6 +16,7 @@ public class Machine {
     private  int a,b;
     private boolean done;
 
+    // the instruction set for the machine
     public final static int
             ADD = 1,        // int add
             SUB= 2,         // int sub
@@ -83,7 +90,6 @@ public class Machine {
 
     public void run(){
         done = false;
-        int i=0;
         while(!done){
             switch (programMemory[pc]) {
                 case ADD -> {
@@ -145,21 +151,21 @@ public class Machine {
                     a = pop();
                     push(a==1? 0: a==0? 1: a);
                 }
-                case JMP -> {
+                case JMP -> {   // pop the address off the stack and change the program counter to it
                     a = pop();
-                    pc = a;
+                    pc = a-1;
                 }
                 case JMPT -> {
                     b = pop();
                     a = pop();
-                    pc = b==1? a:pc;
+                    pc = a==1? b-1:pc;
                 }
                 case JMPF -> {
                     b = pop();
                     a = pop();
-                    pc = b==0? a:pc;
+                    pc = a==0? b-1:pc;
                 }
-                case CONST -> {
+                case CONST -> {     // push the number following the command in the program memory to the stack
                     pc += 1;
                     push(programMemory[pc]);
                 }
@@ -170,9 +176,9 @@ public class Machine {
                 case  GSTORE -> {
                     pc+=1;
                     a = pop();
-                    globalMem[pc] = a;
+                    globalMem[programMemory[pc]] = a;
                 }
-                case PRINT -> System.out.println(stack[sp]);
+                case PRINT -> System.out.println(pop());
                 case POP -> pop();
                 case HALT -> done = true;
             }
@@ -205,6 +211,11 @@ public class Machine {
                 m.load(Arrays.stream(args[1].split(",")).mapToInt(Integer::parseInt).toArray());
                 m.run();
                 break;
+            case "runSrc":
+                String fname = args[1].substring(0,args[1].lastIndexOf('.'))+".vcomp";
+                Compiler.compile(args[1],fname);
+                m.load(fname);
+                m.run();
         }
     }
 

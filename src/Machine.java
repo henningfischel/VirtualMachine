@@ -11,10 +11,10 @@ import java.io.FileNotFoundException;
 import java.util.Scanner;
 
 public class Machine {
-    private int[] programMemory, stack, globalMem, localMem;
+    private int[] programMemory, stack, globalMem;
     private int pc,sp, fp;
     private  int a,b;
-    private boolean done;
+    private boolean done, debug = false;
 
     // the instruction set for the machine
     public final static int
@@ -47,10 +47,11 @@ public class Machine {
     public Machine(int[] program){
         sp = -1;
         pc = 0;
+        fp = 0;
         done = false;
         programMemory = program;
-        stack = new int[2^8];
-        globalMem = new int[2^12];
+        stack = new int[100];
+        globalMem = new int[300];
     }
 
     public Machine(String filepath){
@@ -58,16 +59,24 @@ public class Machine {
         pc = 0;
         done = false;
         load(filepath);
-        stack = new int[2^8];
-        globalMem = new int[2^12];
+        stack = new int[100];
+        globalMem = new int[300];
     }
 
     public Machine(){
         sp = -1;
         pc = 0;
         done = false;
-        stack = new int[2^8];
-        globalMem = new int[2^12];
+        stack = new int[100];
+        globalMem = new int[300];
+    }
+    public Machine(boolean debug){
+        sp = -1;
+        pc = 0;
+        this.debug = debug;
+        done = false;
+        stack = new int[100];
+        globalMem = new int[300];
     }
 
     public void load(String path){
@@ -91,6 +100,7 @@ public class Machine {
     public void run(){
         done = false;
         while(!done){
+            if(debug) System.out.print(Compiler.INT_TO_INSTRUCTION.get(programMemory[pc]));
             switch (programMemory[pc]) {
                 case ADD -> {
                     b = pop();
@@ -169,9 +179,18 @@ public class Machine {
                     pc += 1;
                     push(programMemory[pc]);
                 }
+                case LOAD -> {
+                    a = pop(); //get the address
+                    push(stack[fp+a-2]);
+                }
                 case GLOAD -> {
                     a = pop(); //get the address
                     push(globalMem[a]);
+                }
+                case STORE -> {
+                    pc+=1;
+                    a = pop();  //get the value to store
+                    stack[fp-programMemory[pc]] = a; //store
                 }
                 case  GSTORE -> {
                     pc+=1;
@@ -181,7 +200,26 @@ public class Machine {
                 case PRINT -> System.out.println(pop());
                 case POP -> pop();
                 case HALT -> done = true;
+                case CALL -> {
+                    //save the state
+                    push(programMemory[pc+2]);  //save number of args
+                    push(pc+2); //save the address of the next command -1 (since the loop will add one)
+                    push(fp);
+
+                    fp = sp; //set the frame pointer to the top of the stack
+                    pc = programMemory[pc+1];   //branch to the code of the function
+                }
+                case RET -> {
+                    a = pop();      //the return value
+                    sp = fp;        //discard locals
+                    fp = pop();     //reset frame pointer
+                    pc = pop();     //reset the program counter
+                    sp -= pop();    //discard the function arguments
+                    push(a);        //save the return
+                }
             }
+
+            if(debug) System.out.println(" pc"+pc+" sp"+sp+" fp"+fp+" stack"+Arrays.toString(stack));
             pc++;
         }
     }
@@ -197,7 +235,7 @@ public class Machine {
     }
 
     public static void main(String[] args) {
-        Machine m = new Machine();
+        Machine m = new Machine(true);
         switch (args[0]) {
             case "test":
                 m.load(new int[] {CONST,2,CONST,1,SUB,PRINT,HALT});

@@ -12,6 +12,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.stream.Collectors;
+
 import static java.util.Map.entry;
 
 public class Compiler {
@@ -43,6 +45,10 @@ public class Compiler {
          entry("CALL", 24),      // call procedure
          entry("RET", 25)       // return from procedure
     );
+
+    public static final Map<Integer,String> INT_TO_INSTRUCTION = //an inverse map of INSTRUCTIONS
+            INSTRUCTIONS.entrySet().stream().collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+
 
     public Compiler(){
     }

@@ -181,7 +181,8 @@ public class Machine {
                 }
                 case LOAD -> {
                     a = pop(); //get the address
-                    push(stack[fp+a-2]);
+                    b = a<0? fp+a-2 : fp+a+1;   //avoid the saved data
+                    push(stack[b]);
                 }
                 case GLOAD -> {
                     a = pop(); //get the address
@@ -190,7 +191,7 @@ public class Machine {
                 case STORE -> {
                     pc+=1;
                     a = pop();  //get the value to store
-                    stack[fp-programMemory[pc]] = a; //store
+                    stack[fp-programMemory[pc]+1] = a; //store
                 }
                 case  GSTORE -> {
                     pc+=1;
@@ -203,23 +204,26 @@ public class Machine {
                 case CALL -> {
                     //save the state
                     push(programMemory[pc+2]);  //save number of args
-                    push(pc+2); //save the address of the next command -1 (since the loop will add one)
+                    push(pc+3); //save the address of the next command -1 (since the loop will add one)
                     push(fp);
 
                     fp = sp; //set the frame pointer to the top of the stack
-                    pc = programMemory[pc+1];   //branch to the code of the function
+                    sp += programMemory[pc+3];   //add space for locals
+                    pc = programMemory[pc+1]-1;   //branch to the code of the function
                 }
                 case RET -> {
                     a = pop();      //the return value
                     sp = fp;        //discard locals
                     fp = pop();     //reset frame pointer
                     pc = pop();     //reset the program counter
-                    sp -= pop();    //discard the function arguments
+                    b = pop();  //get number of function args
+                    sp -= b;    //discard the function arguments
                     push(a);        //save the return
                 }
             }
 
-            if(debug) System.out.println(" pc"+pc+" sp"+sp+" fp"+fp+" stack"+Arrays.toString(stack));
+            if(debug) System.out.println(" pc"+pc+" sp"+sp+" fp"+fp+" stack"
+                    +Arrays.toString(Arrays.copyOfRange(stack,0,sp+1)));
             pc++;
         }
     }
@@ -235,7 +239,8 @@ public class Machine {
     }
 
     public static void main(String[] args) {
-        Machine m = new Machine(true);
+        boolean debug = true;
+        Machine m = new Machine(debug);
         switch (args[0]) {
             case "test":
                 m.load(new int[] {CONST,2,CONST,1,SUB,PRINT,HALT});

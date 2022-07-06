@@ -60,7 +60,7 @@ public class Compiler {
             while(in.hasNextLine()){
                 String line = in.nextLine();
                 if(!line.contains("#"))
-                    tokens.addAll(Arrays.asList(line.split(" ")));
+                    tokens.addAll(Arrays.asList(line.split("\\s")));
             }
         } catch (FileNotFoundException e) {
             System.err.println(e);
@@ -70,8 +70,13 @@ public class Compiler {
 
     private static int[] tokensToInts(ArrayList<String> tokens) {
         int[] ints = new int[tokens.size()];
+        int skippedTokens = 0;
         int prgrmPointer = 0;
         for(String token : tokens) {
+            if(token.isEmpty()){
+                skippedTokens++;
+                continue;
+            }
             if(INSTRUCTIONS.containsKey(token)){
                 ints[prgrmPointer]= INSTRUCTIONS.get(token);
                 prgrmPointer++;
@@ -82,10 +87,11 @@ public class Compiler {
                     prgrmPointer++;
                 } catch (NumberFormatException e){
                     System.err.println(e);
+                    skippedTokens++;
                 }
             }
         }
-        return ints;
+        return Arrays.copyOfRange(ints,0,ints.length-skippedTokens);
     }
 
     private static void writeProgram(int[] program, String outfile) {

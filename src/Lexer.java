@@ -33,7 +33,9 @@ public class Lexer {
             Map.entry("^[a-zA-Z][a-zA-Z0-9]*$","REF"),
             Map.entry(";","SEMI"),
             Map.entry("print","PRINT"),
-            Map.entry("=","ASSIGN")
+            Map.entry("=","ASSIGN"),
+            Map.entry("return","RET"),
+            Map.entry(",","COMMA")
     );
     ArrayList<String> rawTokens;
     ArrayList<ArrayList<String>> tokensWithTypes;
@@ -41,8 +43,8 @@ public class Lexer {
     public Lexer(){
         rawTokens = new ArrayList<>();
         tokensWithTypes = new ArrayList<>();
-        ArrayList<String> extraSplitTokens = new ArrayList<>(Arrays.asList("\\(", "\\)", "\\[", "\\]","\\{","\\}",
-                "\\+", "-","\\/","\\*","=","==","!=",";","\\|\\|","\\&\\&"));
+        ArrayList<String> extraSplitTokens = new ArrayList<>(Arrays.asList("\\(", "\\)", "\\[", "\\]", "\\{", "\\}",
+                "<", ">", "<=", ">=", "\\+", "-","\\/","\\*","=","==","!=",";","\\|\\|","\\&\\&"));
         splitRegex = "\\t|\\n| ";
         for(String s : extraSplitTokens) splitRegex = splitRegex.concat("|((?="+s+")|(?<="+s+"))");
     }

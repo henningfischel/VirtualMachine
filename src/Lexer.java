@@ -52,8 +52,17 @@ public class Lexer {
     private void readFromFile(String infile) {
         try{
             Scanner in = new Scanner(new File(infile));
+            boolean multiLineComment = false;
             while(in.hasNextLine()){
                 String line = in.nextLine();
+                if(line.contains("/*")) multiLineComment=true;
+                if(line.contains("*/")){
+                    multiLineComment=false;
+                    while(line.contains("*/")){
+                        line = line.replace("*/","");
+                    }
+                }
+                if(multiLineComment) continue;
                 if(line.contains("#")) continue;
                 //split removing whitespace and around parens
                 ArrayList<String> lineToks = new ArrayList<>(Arrays.asList(line.split(splitRegex)));

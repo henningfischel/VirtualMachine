@@ -29,3 +29,6 @@ bin/
 .DS_Store
 *.vsrc
 *.vcomp
+*.vbyt
+*.vlex
+*.vsrc

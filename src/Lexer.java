@@ -1,3 +1,9 @@
+/**
+ * The Lexer Class reads a source code file and converts it into a series of tokens for the Parser.
+ *
+ * @author Henning Fischel
+ */
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
@@ -45,12 +51,18 @@ public class Lexer {
     public Lexer() {
         rawTokens = new ArrayList<>();
         tokensWithTypes = new ArrayList<>();
+        // the tokens to split around
         ArrayList<String> extraSplitTokens = new ArrayList<>(Arrays.asList("\\(", "\\)", "\\[", "\\]", "\\{", "\\}",
                 "<", ">", "<=", ">=", "\\+", "-", "\\/", "\\*", "=", "==", "!=", ";", "\\|\\|", "\\&\\&",","));
         splitRegex = "\\t|\\n| ";
         for (String s : extraSplitTokens) splitRegex = splitRegex.concat("|((?=" + s + ")|(?<=" + s + "))");
     }
 
+    /**
+     * Read input from a file skipping comments
+     *
+     * @param infile the filepath to read from
+     */
     private void readFromFile(String infile) {
         try {
             Scanner in = new Scanner(new File(infile));
@@ -76,6 +88,13 @@ public class Lexer {
         }
     }
 
+    /**
+     * tokenize a file from source code to parsable codes. Writes a file with the same name as the source code file but
+     * with the extension .vlex.
+     * @param inPath the filepath of the source-code
+     * @throws UnexpectedTokenException when the source code contains an unreconized sequence (i.e. one not in
+     * OPERATION_STRINGS
+     */
     public void tokenize(String inPath) throws UnexpectedTokenException {
         readFromFile(inPath);
         Set<String> keys = OPERATION_STRINGS.keySet();
@@ -107,6 +126,10 @@ public class Lexer {
         writeLexed(inPath.substring(0, inPath.lastIndexOf('.')) + ".vlex");
     }
 
+    /**
+     * writes the lexed tokens to a file.
+     * @param outfile the file to write to.
+     */
     private void writeLexed(String outfile) {
         try {
             File outFile = new File(outfile);

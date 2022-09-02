@@ -600,7 +600,6 @@ public class Parser {
             }
             String temp = "";
             for (String s : toks) temp = temp.concat(s + " ");
-            System.out.println(temp + " not " + this.name);
             return null;
         }
 

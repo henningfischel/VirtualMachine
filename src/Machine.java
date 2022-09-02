@@ -1,5 +1,6 @@
 /**
- * The Machine Class is a virtual machine that executes a program
+ * The Machine Class is a virtual machine that executes a program of integers.
+ * All data are integers.
  *
  * @author Henning Fischel
  */
@@ -82,6 +83,10 @@ public class Machine {
         globalMem = new int[300];
     }
 
+    /**
+     * loads a program from a filepath
+     * @param path
+     */
     public void load(String path) {
         try {
             ArrayList<Integer> tmp = new ArrayList<Integer>();
@@ -96,10 +101,17 @@ public class Machine {
         }
     }
 
+    /**
+     * loads a program from an int array
+     * @param program
+     */
     public void load(int[] program) {
         programMemory = program.clone();
     }
 
+    /**
+     * runs the currently loaded program
+     */
     public void run() {
         done = false;
         while (!done) {
@@ -240,37 +252,68 @@ public class Machine {
         }
     }
 
+    /**
+     * pushes an int to the stack
+     * @param n number to be pushed
+     */
     private void push(int n) {
         sp++;
         stack[sp] = n;
     }
 
+    /**
+     * pops an int from the top of the stack
+     * @return the item at the top of the stack
+     */
     private int pop() {
         sp--;
         return stack[sp + 1];
     }
 
+    /**
+     * Runs a Machine.
+     * @param args test (runs a simple test) || load filepath (loads and runs the program at filpath)
+     *             || run program (runs a program of ints seperated by commas)
+     *             || runSrc filepath (compiles and runs a bytecode file)
+     */
     public static void main(String[] args) {
         boolean debug = true;
         Machine m = new Machine(debug);
         switch (args[0]) {
-            case "test":
+            case "test"-> {
                 m.load(new int[]{CONST, 2, CONST, 1, SUB, PRINT, HALT});
                 m.run();
-                break;
-            case "load":
+            }
+            case "runComp"-> {
                 m.load(args[1]);
                 m.run();
-                break;
-            case "run":
+            }
+            case "run"-> {
                 m.load(Arrays.stream(args[1].split(",")).mapToInt(Integer::parseInt).toArray());
                 m.run();
-                break;
-            case "runSrc":
-                String fname = args[1].substring(0, args[1].lastIndexOf('.')) + ".vcomp";
-                Compiler.compile(args[1], fname);
-                m.load(fname);
+            }
+            case "runSrc"-> {
+                Lexer lex = new Lexer();
+                try {
+                    lex.tokenize(args[1]);
+                } catch (UnexpectedTokenException e) {
+                    System.err.println(e);
+                    return;
+                }
+                String fname = args[1].substring(0, args[1].lastIndexOf('.'));
+                Parser.parse(fname + ".vlex");
+                Compiler.compile(fname + ".vbyt",
+                        fname + ".vcomp");
+                m.load(fname + ".vcomp");
                 m.run();
+            }
+            case "runByt"-> {
+                String fname = args[1].substring(0, args[1].lastIndexOf('.'));
+                Compiler.compile(fname + ".vbyt",
+                        fname + ".vcomp");
+                m.load(fname + ".vcomp");
+                m.run();
+            }
         }
     }
 

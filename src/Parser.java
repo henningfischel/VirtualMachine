@@ -4,6 +4,12 @@ import java.io.FileWriter;
 import java.util.*;
 import java.util.stream.IntStream;
 
+/**
+ *  The Parser class converts a .vlex token file to a bytecode file for compiling to virtual machine code. As an
+ *  intermediary step it creates an abstract syntax tree of operation precedence.
+ *
+ * @author Henning Fischel
+ */
 public class Parser {
     private ArrayList<Rule> rules;
     private Map<String, Rule> rulesByName;
@@ -45,7 +51,7 @@ public class Parser {
                 new Rule("args_dec", new String[][]{new String[]{"$ref", "COMMA", "$args_dec"},
                         new String[]{"$ref", "CLOSE_PAREN"}, new String[]{}}, 0, false),
                 new Rule("args", new String[][]{new String[]{"$or", "COMMA", "$args"},
-                        new String[]{"$or"}, new String[]{}}, false),
+                        new String[]{"$or"}, new String[]{}}, false), //TODO bug??
                 new Rule("ret", new String[][]{new String[]{"RET", "$or", "SEMI"}, new String[]{"RET", "$or"}},
                         0, false),
 
@@ -84,6 +90,11 @@ public class Parser {
         functions = new HashMap<>();
     }
 
+    /**
+     * reads a .vlex file
+     * @param inPath the filepath of the .vlex file.
+     * @return an ArrayList with two ArrayLists: the token types from the lexer and the original strings
+     */
     private static ArrayList<ArrayList<String>> readLexerFile(String inPath) {
         ArrayList<String> toks = new ArrayList<String>();
         ArrayList<String> vals = new ArrayList<String>();
@@ -107,6 +118,11 @@ public class Parser {
         return new ArrayList<>(Arrays.asList(toks, vals));
     }
 
+    /**
+     * The method to call when using Parser. Loads a token file, creates a syntax tree, converts the tree to bytecode,
+     * and writes the bytecode to a .vbyt file.
+     * @param lexedPath the filepath of the .velx file.
+     */
     public static void parse(String lexedPath) {
         assert lexedPath.substring(lexedPath.lastIndexOf('.')).equals(".vlex");
         Parser p = new Parser();
@@ -116,22 +132,33 @@ public class Parser {
         write(program, lexedPath.substring(0, lexedPath.lastIndexOf('.')) + ".vbyt");
     }
 
+    /**
+     * Convert a Syntax tree into bytecode. Functions are added to the end of the file.
+     * @param astHead the head of the tree.
+     * @return the bytecode program
+     */
     private String compile(ExpressionNode astHead) {
-        String s = compileHelper(astHead, -1, false);
-        s = s + "HALT\n";
-        int pc = s.split("\\s").length - 1;
+        String s = compileHelper(astHead, -1, false);  // first pass; write everything except the functions
+        s = s + "HALT\n";   // add the stop code to the end
+        int pc = s.split("\\s").length - 1; // the number of operations and args
+
+        // iterate over the functions
         for (String funcName : functions.keySet()) {
             FunctionContainer func = functions.get(funcName);
-            int funcAddr = pc + 1;
+            int funcAddr = pc + 1;  // the address to branch to the function
             localVars.push(new HashMap<>());
             lVarCount.push(0);
-            s = s + "\n#func " + funcName + "\n";
+            s = s + "\n#func " + funcName + "\n";   // add a comment
+
+            // parse the function's args and code
             String temp = compileHelper(func.args, pc, true);
             s = s + temp;
             pc += temp.split("\\s").length;
             temp = compileHelper(func.code, pc, true);
             s = s + temp;
             pc += temp.split("\\s").length;
+
+            // add the correct address to the function calls to this function
             s = s.replaceAll("\\$" + func.addr, String.valueOf(funcAddr));
             localVars.pop();
             lVarCount.pop();
@@ -140,9 +167,18 @@ public class Parser {
         return s;
     }
 
+    /**
+     * Recursive function that traverses the syntax tree and builds the bytecode string
+     * @param eNode the current node
+     * @param pc the current program counter
+     * @param inFunction whether the code is currently in a function (i.e. whether to use local or global vars)
+     * @return the bytecode program
+     */
     private String compileHelper(ExpressionNode eNode, int pc, boolean inFunction) {
         StringBuilder strB = new StringBuilder();
+        // switch on the type of rule
         switch (eNode.rule.name) {
+            // for collections of code just evaluate the children
             case "code_block", "lines", "line", "item" -> {
                 for (ExpressionNode e : eNode.children) {
                     String tmp = compileHelper(e, pc, inFunction);
@@ -211,6 +247,7 @@ public class Parser {
                 strB.append(increment);
                 // add jump back to condition
                 strB.append("CONST " + conditionPC + " JMP\n");
+
                 //process next code block
                 if (eNode.children.size() > 4) {
                     strB.append(compileHelper(eNode.children.get(4), pc + 3, inFunction));
@@ -220,19 +257,21 @@ public class Parser {
                 String fName = eNode.value.split(" ")[0];
                 lVarCount.push(0);
                 localVars.push(new HashMap<>());
-                // eval args
+                // eval args for the number of args
                 compileHelper(eNode.children.get(0), pc, true);
                 int nArgs = lVarCount.pop();
+                // add the function to the function dictionary to be converted later
                 functions.put(fName, new FunctionContainer(fName, eNode.children.get(0),
                         eNode.children.get(1), nArgs, -1, functions.size()));
 
-                // eval code block
+                // eval code block for number of locals
                 lVarCount.push(0);
                 compileHelper(eNode.children.get(1), pc, true);
                 int nLocals = lVarCount.pop();
                 localVars.pop();
                 functions.get(fName).nLocals = nLocals;
 
+                //process the next code block
                 if (eNode.children.size() > 2) {
                     strB.append(compileHelper(eNode.children.get(2), pc, inFunction));
                 }
@@ -244,13 +283,15 @@ public class Parser {
             case "assign" -> {
                 String varName = eNode.children.get(0).value;
                 if (inFunction) {
-                    if (localVars.peek().containsKey(varName)) {
+                    // store the variable locally
+                    if (!localVars.peek().containsKey(varName)) {
                         localVars.peek().put(varName, lVarCount.peek());
                         lVarCount.push(lVarCount.pop() + 1);
                     }
                     strB.append(compileHelper(eNode.children.get(1), pc, inFunction));
                     strB.append("STORE ").append(localVars.peek().get(varName)).append("\n");
                 } else {
+                    // store the variable globally
                     if (!globalVars.containsKey(varName)) {
                         globalVars.put(varName, gVarCount);
                         gVarCount++;
@@ -356,11 +397,14 @@ public class Parser {
         m.run();
     }
 
+    /**
+     * The node class for a Syntax tree.
+     */
     private class ExpressionNode {
-        private Rule rule;
-        private String value;
+        private Rule rule;  // the rule associated with this Node
+        private String value;   // the source code at this node
         private ArrayList<ExpressionNode> children;
-        private String op;
+        private String op;  // the string value of the operation perfomed at this node (e.g. "+").
 
         public ExpressionNode(Rule rule, String value, ArrayList<ExpressionNode> children) {
             this.rule = rule;
@@ -389,11 +433,14 @@ public class Parser {
 
     }
 
+    /**
+     * A particular grammar rule.
+     */
     private class Rule {
-        private final String name;
-        private final String[][] patterns;
-        boolean terminal;
-        int opIdx;
+        private final String name;  // what this rule is referred to by in other Rules' patterns.
+        private final String[][] patterns;  // the possible patterns of tokens that are associated with this rule.
+        boolean terminal;   // does this rule not contain any other rules in its patterns.
+        int opIdx;  // the index of the token that corresponds to the operation this rule performs in the patterns.
 
         public Rule(String name, String[][] patterns, int opIdx, boolean terminal) {
             this.name = name;
@@ -413,7 +460,15 @@ public class Parser {
             return patterns;
         }
 
+        /**
+         *  Creates a syntax tree starting from this rule. Recursively calls this method in other Rules. Should be
+         *  called by the rule with the lowest precedence.
+         * @param toks the tokens to parse
+         * @param vals Strign values of the tokens in toks
+         * @return an ExpressionNode that is the head of the tree.
+         */
         public ExpressionNode buildAstFromThisRule(List<String> toks, List<String> vals) {
+            // if this is a terminal then just check to see if the toks match the pattern
             if (this.terminal) {
                 if (toks.get(0).equals(getPatterns()[0][0]) && toks.size() == 1)
                     return new ExpressionNode(this, vals.get(0), null);
@@ -421,6 +476,7 @@ public class Parser {
             }
             // check if toks matches any pattern in patterns
             for (String[] pattern : patterns) {
+                // ran out of toks or vals to parse; time to early exit.
                 if (pattern.length == 0 || toks.size() == 0) {
                     if (toks.size() == 0 && pattern.length == 0) {
                         return new ExpressionNode(this, "", null);
@@ -428,17 +484,18 @@ public class Parser {
                         return null;
                     }
                 }
+                // if the pattern just has one operation and is not a terminal then it is just a pointer to another rule
                 if (pattern.length == 1) {
                     ExpressionNode e = rulesByName.get(pattern[0].substring(1)).buildAstFromThisRule(toks, vals);
                     if (e == null) continue;
                     return e;
                 } else {
                     boolean inSubExp = false;
-                    int patternPointer = 0;
-                    int patternPointerUpdate = -1; //the index to move patternPointer to after a match
+                    int patternPointer = 0; //pointer for pattern. Set to -1 if there is an error in the match
+                    int patternPointerUpdate = -1; // the index to move patternPointer to after a match
                     int fromIdx = -1;   // the start of a subexpression
                     String op = null;
-                    ArrayList<ArrayList<String>> nextMatches;
+                    ArrayList<ArrayList<String>> nextMatches;   // the list of tokens that can be the next match
                     try {
                         nextMatches = findNextMatches(new ArrayList<>(Arrays.asList(pattern)), 0);
                         if (nextMatches != null)
@@ -450,11 +507,14 @@ public class Parser {
 
                     ArrayList<ExpressionNode> children = new ArrayList<>();
 
+                    // iterate over the token list
                     for (int tokenPointer = 0; tokenPointer < toks.size(); tokenPointer++) {
+                        // if out of pattern then there it does not match. Early breakout.
                         if (patternPointer >= pattern.length) {
                             patternPointer = -1;
                             break;
                         }
+                        //currently in a sub-expression
                         if (pattern[patternPointer].charAt(0) == '$') {
                             //if just started the recursive rule part, start counting
                             if (!inSubExp) {
@@ -488,17 +548,21 @@ public class Parser {
                                     break;
                                 }
                             }
+                            // if there is a match then check if the subexpression matches
                             if (matchidx > -1) {
                                 ExpressionNode e = rulesByName.get(pattern[patternPointer].substring(1))
                                         .buildAstFromThisRule(toks.subList(fromIdx, tokenPointer)
                                                 , vals.subList(fromIdx, tokenPointer));
-                                if (e == null) continue; //was break
+                                if (e == null) continue;    // if it doesn't match then keep looking (staying in the sub
+                                    // expression)
                                 children.add(e);
                                 if (patternPointer == this.opIdx) op = toks.get(tokenPointer);
                                 patternPointer = patternPointerUpdate;
                                 inSubExp = false;
                             }
+                        // if not in a sub-expression
                         } else {
+                            // find the next possible tokens that would match
                             try {
                                 nextMatches = findNextMatches(new ArrayList<>(Arrays.asList(pattern)),
                                         patternPointer);
@@ -508,6 +572,7 @@ public class Parser {
                                 return null;
                             }
 
+                            // check if the tokens match
                             int matchidx = -1;
                             for (ArrayList<String> match : nextMatches) {
                                 if (match.get(0).equals(toks.get(tokenPointer))) {
@@ -523,13 +588,12 @@ public class Parser {
                             }
                         }
                     }
-                    if (patternPointer >= pattern.length) {
+
+                    if (patternPointer >= pattern.length) { // this means there was a match
                         String temp = "";
                         for (String s : vals) temp = temp.concat(s).concat(" ");
                         ExpressionNode e = new ExpressionNode(this, temp, children);
                         if (op != null) e.op = op;
-                        System.out.println(this.name);
-                        System.out.println(e);
                         return e;
                     }
                 }
@@ -590,6 +654,9 @@ public class Parser {
 
     }
 
+    /**
+     * A container class to group the variables associated with a particular function.
+     */
     private class FunctionContainer {
         String name;
         ExpressionNode args;
